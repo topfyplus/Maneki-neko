@@ -121,12 +121,12 @@ FBX model and animations from: https://www.mixamo.com
             const loader = new THREE.FBXLoader();
             const game = this;
 
-            loader.load(`${this.assetsPath}neko.fbx`, function (object) {
+            loader.load(`${this.assetsPath}Neko.fbx`, function (object) {
                 object.mixer = new THREE.AnimationMixer(object);
                 game.player.mixer = object.mixer;
                 game.player.root = object.mixer.getRoot();
 
-                object.name = "neko";
+                object.name = "Neko";
 
                 object.traverse(function (child) {
                     if (child.isMesh) {
