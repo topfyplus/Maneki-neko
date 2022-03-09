@@ -84,11 +84,11 @@ function init(){
     //   .setPath(assetPath)
     //   .load('texture.png');
 
-      object.traverse( child => {
-          if (child.isMesh) {
-              child.material.map = map;
-          }
-      })
+    //   object.traverse( child => {
+    //       if (child.isMesh) {
+    //           child.material.map = map;
+    //       }
+    //   })
 
       scene.add(object);
       anims = ['step', 'hiphop', 'soul'];
