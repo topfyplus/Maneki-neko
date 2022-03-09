@@ -9,6 +9,12 @@
 
 <body>
     <h1>Maneki Neko</h1>
+    <div class="button-group">
+        <button>Animation1</button>
+        <button>Animation2</button>
+        <button>Animation3</button>
+        <button>Reset</button>
+    </div>
 </body>
 
 </html>
@@ -156,5 +162,28 @@
 
     body {
         background: #000;
+        position: relative;
+    }
+
+    .button-group {
+        display: flex;
+        justify-content: space-around;
+        position: absolute;
+        z-index: 1;
+        width: 100%;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        margin: 0 auto;
+    }
+
+    .button-group button {
+        padding: 15px 30px;
+        text-align: center;
+        background-color: #EC5060;
+        color: #fff;
+        font-weight: 600;
+        font-size: 32px;
+        border-radius: 6px;
     }
 </style>
