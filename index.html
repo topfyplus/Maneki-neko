@@ -2,247 +2,266 @@
 <html lang="en">
 
 <body>
-    <div id="btns">
-        <a class="btn">snake</a>
-        <a class="btn">step</a>
-        <a class="btn">hiphop</a>
-        <a class="btn">soul</a>
+    <div class="btn-group">
+        <button onClick="javascript:game.toggleAnimation('Snake')">
+            Snake
+        </button>
+
+        <button onClick="javascript:game.toggleAnimation('Step')">
+            Step
+        </button>
+        <button onClick="javascript:game.toggleAnimation('Hip Hop')">
+            Hip Hop
+        </button>
+
+        <button onClick="javascript:game.toggleAnimation('Soul')">
+            Soul
+        </button>
     </div>
 </body>
 
 </html>
-<!-- three.min.js r87 -->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/106/three.min.js"></script>
-
-<!-- GLTFLoader -->
-<script src="https://s3-us-west-2.amazonaws.com/s.cdpn.io/2666677/GLTFLoader.js"></script>
-
-<!-- OrbitControls -->
-<script src="https://s3-us-west-2.amazonaws.com/s.cdpn.io/2666677/OrbitControls.js"></script>
+<script src="https://testinggrounds.info/share/threejs/three.min.js"></script>
+<script src="https://testinggrounds.info/share/threejs/js/libs/inflate.min.js"></script>
+<script src="https://testinggrounds.info/share/threejs/js/loaders/FBXLoader.js"></script>
+<script src="https://testinggrounds.info/share/threejs/js/controls/OrbitControls.js"></script>
+<script src="https://testinggrounds.info/share/threejs/js/WebGL.js"></script>
 <script>
-    var scene, camera, renderer, clock, mixer, actions;
+    /* Code originally from https://www.udemy.com/create-a-3d-multi-player-game-using-threejs-and-socketio/
+A few updates to change to dance moves with button triggers.
+FBX model and animations from: https://www.mixamo.com
+*/
 
-    init();
+    document.addEventListener("DOMContentLoaded", function () {
+        const game = new Game();
+        window.game = game; //For debugging only
+    });
 
-    //FUnction courtesy of Don McCurdy
-    function subclip(sourceClip, name, startFrame, endFrame, fps) {
-
-        fps = fps || 30;
-
-        var clip = sourceClip.clone();
-
-        clip.name = name;
-
-        var tracks = [];
-
-        for (var i = 0; i < clip.tracks.length; ++i) {
-
-            var track = clip.tracks[i];
-            var valueSize = track.getValueSize();
-
-            var times = [];
-            var values = [];
-
-            for (var j = 0; j < track.times.length; ++j) {
-
-                var frame = track.times[j] * fps;
-
-                if (frame < startFrame || frame >= endFrame) continue;
-
-                times.push(track.times[j]);
-
-                for (var k = 0; k < valueSize; ++k) {
-
-                    values.push(track.values[j * valueSize + k]);
-
-                }
-
+    class Game {
+        constructor() {
+            if (WEBGL.isWebGLAvailable() === false) {
+                document.body.appendChild(WEBGL.getWebGLErrorMessage());
             }
 
-            if (times.length === 0) continue;
+            this.container;
+            this.player = {};
+            this.animations = {};
+            this.stats;
+            this.controls;
+            this.camera;
+            this.scene;
+            this.renderer;
 
-            track.times = THREE.AnimationUtils.convertArray(times, track.times.constructor);
-            track.values = THREE.AnimationUtils.convertArray(values, track.values.constructor);
+            this.container = document.createElement("div");
+            this.container.style.height = "100%";
+            document.body.appendChild(this.container);
 
-            tracks.push(track);
+            const game = this;
+            this.anims = [
+                "Snake",
+                "Step",
+                "Hip Hop",
+                "Soul"
+            ];
 
+            this.assetsPath = "https://cdn.jsdelivr.net/gh/topfyplus/Maneki-neko@5df19eb3a6c6a849fe8a4f327064aac15b642c7b/";
+
+            this.clock = new THREE.Clock();
+
+            this.init();
+
+            window.onError = function (error) {
+                console.error(JSON.stringify(error));
+            };
         }
 
-        clip.tracks = tracks;
+        init() {
+            this.camera = new THREE.PerspectiveCamera( 75, window.innerWidth/window.innerHeight, 0.1, 1000 ); 
+            this.camera.position.z = 25; 
+            this.camera.position.y = 15; 
 
-        // find minimum .times value across all tracks in the trimmed clip
+            this.scene = new THREE.Scene();
+            this.scene.background = new THREE.Color(0xa0a0a0);
+            this.scene.fog = new THREE.Fog(0xa0a0a0, 700, 1800);
 
-        var minStartTime = Infinity;
+            let light = new THREE.HemisphereLight(0xffffff, 0x444444);
+            light.position.set(0, 200, 0);
+            this.scene.add(light);
 
-        for (var i = 0; i < clip.tracks.length; ++i) {
+            light = new THREE.DirectionalLight(0xffffff);
+            light.position.set(0, 200, 100);
+            light.castShadow = true;
+            light.shadow.camera.top = 180;
+            light.shadow.camera.bottom = -100;
+            light.shadow.camera.left = -120;
+            light.shadow.camera.right = 120;
+            this.scene.add(light);
 
-            if (minStartTime > clip.tracks[i].times[0]) {
+            // ground
+            const mesh = new THREE.Mesh(
+                new THREE.PlaneBufferGeometry(4000, 4000),
+                new THREE.MeshPhongMaterial({
+                    color: 0x999999,
+                    depthWrite: false
+                })
+            );
 
-                minStartTime = clip.tracks[i].times[0];
+            mesh.rotation.x = -Math.PI / 2;
+            // mesh.position.y = -100;
+            mesh.receiveShadow = true;
+            this.scene.add(mesh);
 
-            }
+            const grid = new THREE.GridHelper(4000, 40, 0x000000, 0x000000);
+            //grid.position.y = -100;
+            grid.material.opacity = 0.2;
+            grid.material.transparent = true;
+            this.scene.add(grid);
 
-        }
+            // model
+            const loader = new THREE.FBXLoader();
+            const game = this;
 
-        // shift all tracks such that clip begins at t=0
+            loader.load(`${this.assetsPath}neko.fbx`, function (object) {
+                object.mixer = new THREE.AnimationMixer(object);
+                game.player.mixer = object.mixer;
+                game.player.root = object.mixer.getRoot();
 
-        for (var i = 0; i < clip.tracks.length; ++i) {
+                object.name = "neko";
 
-            clip.tracks[i].shift(-1 * minStartTime);
+                object.traverse(function (child) {
+                    if (child.isMesh) {
+                        child.castShadow = true;
+                        child.receiveShadow = false;
+                    }
+                });
 
-        }
+                game.scene.add(object);
+                game.player.object = object;
+                game.animations.Idle = object.animations[0];
 
-        clip.resetDuration();
-
-        return clip;
-
-    }
-
-    function init() {
-        const assetPath = 'https://cdn.jsdelivr.net/gh/topfyplus/Maneki-neko@5df19eb3a6c6a849fe8a4f327064aac15b642c7b/';
-
-        clock = new THREE.Clock();
-
-        scene = new THREE.Scene();
-        scene.background = new THREE.Color(0x00aaff);
-
-        camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
-        camera.position.set(0, 0, 2);
-
-        const ambient = new THREE.HemisphereLight(0xffffbb, 0x080820, 2);
-        scene.add(ambient);
-
-        const light = new THREE.DirectionalLight(0xFFFFFF, 1.5);
-        light.position.set(0, 1, 10);
-        scene.add(light);
-
-        const light2 = new THREE.DirectionalLight(0xFFFFFF, 1);
-        light2.position.set(10, 5, 10);
-        //scene.add(light2);
-
-        renderer = new THREE.WebGLRenderer();
-        renderer.setSize(window.innerWidth, window.innerHeight);
-        document.body.appendChild(renderer.domElement);
-
-        const controls = new THREE.OrbitControls(camera, renderer.domElement);
-        controls.target.set(0, 0.7, 0);
-        controls.update();
-
-        //Add button actions here
-        let index = 0;
-        const btns = document.getElementById("btns");
-        btns.childNodes.forEach(btn => {
-            if (btn.innerHTML !== undefined) {
-                btn.addEventListener('click',
-                    playAction.bind(this, index)
-                );
-                index++;
-            }
-        });
-
-        const anims = [{
-                start: 297,
-                end: 458,
-                name: "neko-snake",
-                loop: true
-            },
-            {
-                start: 79,
-                end: 154,
-                name: "neko-step",
-                loop: false,
-                next: 0
-            },
-            {
-                start: 0,
-                end: 69,
-                name: "neko-hiphop",
-                loop: false,
-                next: 0
-            },
-            {
-                start: 236,
-                end: 482,
-                name: "neko-soul",
-                loop: false
-            },
-        ];
-        //Load meshes here
-        const loader = new THREE.GLTFLoader();
-        loader.setPath(assetPath);
-
-        loader.load('neko.glb', object => {
-            mixer = new THREE.AnimationMixer(object.scene);
-            mixer.addEventListener('finished', e => {
-                if (e.action.next != undefined) playAction(e.action.next);
-            });
-            object.scene.children[0].rotation.x = 0;
-            actions = [];
-
-            anims.forEach(anim => {
-                const clip = subclip(object.animations[0], anim.name, anim.start, anim.end);
-                const action = mixer.clipAction(clip);
-                if (!anim.loop) {
-                    action.loop = THREE.LoopOnce;
-                    action.clampWhenFinished = true;
-                }
-                if (anim.next != undefined) action.next = anim.next;
-                actions.push(action);
+                game.loadNextAnim(loader);
             });
 
-            actions[0].play();
+            this.renderer = new THREE.WebGLRenderer({
+                antialias: true
+            });
+            this.renderer.setPixelRatio(window.devicePixelRatio);
+            this.renderer.setSize(window.innerWidth, window.innerHeight);
+            this.renderer.shadowMap.enabled = true;
+            this.container.appendChild(this.renderer.domElement);
 
-            scene.add(object.scene);
-            update();
-        });
+            this.controls = new THREE.OrbitControls(
+                this.camera,
+                this.renderer.domElement
+            );
+            this.controls.target.set(0, 100, 0);
+            this.controls.update();
 
-        window.addEventListener('resize', resize, false);
+            window.addEventListener(
+                "resize",
+                function () {
+                    game.onWindowResize();
+                },
+                false
+            );
+        }
 
-    }
+        loadNextAnim(loader) {
+            let anim = this.anims.pop();
+            const game = this;
+            loader.load(`${this.assetsPath}${anim}.fbx`, function (object) {
+                game.animations[anim] = object.animations[0];
+                if (game.anims.length > 0) {
+                    game.loadNextAnim(loader);
+                } else {
+                    delete game.anims;
+                    game.action = "Snake";
+                    game.animate();
+                }
+            });
+        }
 
-    function playAction(index) {
-        const action = actions[index];
-        mixer.stopAllAction();
-        action.reset();
-        action.fadeIn(0.5);
-        action.play();
-    }
+        onWindowResize() {
+            this.camera.aspect = window.innerWidth / window.innerHeight;
+            this.camera.updateProjectionMatrix();
+            this.renderer.setSize(window.innerWidth, window.innerHeight);
+        }
 
-    function update() {
-        requestAnimationFrame(update);
-        renderer.render(scene, camera);
-        const dt = clock.getDelta();
-        mixer.update(dt);
-    }
+        set action(name) {
+            const action = this.player.mixer.clipAction(this.animations[name]);
+            action.time = 0;
+            this.player.mixer.stopAllAction();
+            this.player.action = name;
+            this.player.actionTime = Date.now();
+            this.player.actionName = name;
+            action.fadeIn(0.5);
+            action.play();
+        }
 
-    function resize() {
-        camera.aspect = window.innerWidth / window.innerHeight;
-        camera.updateProjectionMatrix();
-        renderer.setSize(window.innerWidth, window.innerHeight);
+        get action() {
+            if (this.player === undefined || this.player.actionName === undefined)
+                return "";
+            return this.player.actionName;
+        }
+
+        toggleAnimation(animName) {
+            console.log(animName);
+            switch (animName) {
+                case "Snake":
+                    game.action = animName;
+                    break;
+                case "Step":
+                    game.action = animName;
+                    break;
+                case "Hip Hop":
+                    game.action = animName;
+                    break;
+                case "Soul":
+                    game.action = animName;
+                    break;
+            }
+        }
+
+        animate() {
+            const game = this;
+            const dt = this.clock.getDelta();
+
+            requestAnimationFrame(function () {
+                game.animate();
+            });
+
+            if (this.player.mixer !== undefined) this.player.mixer.update(dt);
+
+            this.renderer.render(this.scene, this.camera);
+        }
     }
 </script>
 <style>
+    * {
+        box-sizing: border-box;
+    }
+
+    html,
     body {
-        padding: 0;
-        margin: 0;
         overflow: hidden;
     }
 
-    #btns {
-        position: absolute;
-        right: 10px;
-        bottom: 25px;
+    .btn-group {
+        position: fixed;
+        bottom: 0;
+        width: 100%;
+        display: flex;
+        justify-content: space-around;
     }
 
-    .btn {
-        background: #EC5060;
-        padding: 15px;
-        font-family: arial;
-        border: 4px;
-        color: #fff;
-        font-size: 21px;
-        font-weight: 500;
-        border-radius: 4px;
+    button {
         cursor: pointer;
+        width: 100%;
+        padding: 1rem;
+        font-size: 1.125rem;
+        background: black;
+        border: 1px solid darkgrey;
+        color: white;
+        transition: 0.3s;
     }
 </style>
