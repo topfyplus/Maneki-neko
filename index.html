@@ -93,7 +93,7 @@ function init(){
 function loadAnimation(loader){
   const anim = anims.shift();
   
-  loader.load(`neko-${anim}.fbx`, object => {
+  loader.load(`neko-${anim}.fdbx`, object => {
     const action = mixer.clipAction(object.animations[0]);
     if (anim=='soul'){
       action.loop = THREE.LoopOnce;
