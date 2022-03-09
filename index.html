@@ -31,7 +31,7 @@
 
         //カメラを作成
         camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-        camera.position.z = 75;
+        camera.position.z = 50;
         camera.position.y = 15;
 
         //レンダラーを作成
@@ -61,7 +61,7 @@
         // Load a glTF resource
         loader.load(
             // resource URL
-            'https://cdn.jsdelivr.net/gh/topfyplus/Maneki-neko@89ea9f181d2a61b4cbef6872f184dd6dbf13b8c0/neko.gltf',
+            'https://cdn.jsdelivr.net/gh/topfyplus/Maneki-neko@89ea9f181d2a61b4cbef6872f184dd6dbf13b8c0/neko-snake.gltf',
             // called when the resource is loaded
             function (gltf) {
 
